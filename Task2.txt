@@ -1,0 +1,54 @@
+﻿apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: web-app
+  labels:
+    app: web-app
+spec:
+  replicas: 3 #  3 пода потому что это достаточно для тек нагрузки.
+  selector:
+    matchLabels:
+      app: web-app
+  template:
+    metadata:
+      labels:
+        app: web-app
+    spec:
+      containers:
+      - name: web-app-container
+        image: your-web-app-image:latest
+        resources:
+          requests:
+            memory: "128Mi"   # тут минимальный объем памяти который нужен будет всгеда.
+            cpu: "100m"       # 0.1 CPU для работы .
+          limits:
+            memory: "128Mi"   # до 128Mi ограничиваем память.
+            cpu: "500m"       # делаем лимит на cpu, когда нужно больше ресурсов.
+        ports:
+        - containerPort: 80
+        readinessProbe:       # Проверка, когда под готов обрабатывать запросы.
+          httpGet:
+            path: /health
+            port: 80
+          initialDelaySeconds: 10  # ждем приложению 10 секунд на инициализацию.
+          periodSeconds: 5
+          failureThreshold: 3
+          successThreshold: 1
+        livenessProbe:        # добавили проверку если под живой.
+          httpGet:
+            path: /health
+            port: 80
+          initialDelaySeconds: 15
+          periodSeconds: 20
+      affinity:              # Запрещаем запуск всех подов на одной ноде.
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 100
+            podAffinityTerm:
+              labelSelector:
+                matchExpressions:
+                - key: app
+                  operator: In
+                  values:
+                  - web-app
+              topologyKey: "kubernetes.io/hostname" # И размещаем поды на разных нодах.
